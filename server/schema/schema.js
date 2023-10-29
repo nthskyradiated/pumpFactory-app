@@ -1,4 +1,5 @@
-import { clients, products } from '../sampleData.js'
+import Client from '../models/clientModel.js'
+import Product from '../models/productModel.js'
 
 import { GraphQLObjectType, GraphQLID, GraphQLEnumType, GraphQLString, GraphQLBoolean, GraphQLInt, GraphQLSchema, GraphQLList } from 'graphql';
 
@@ -24,11 +25,11 @@ const ClientType = new GraphQLObjectType({
         birthday: { type: GraphQLString},
         age: { type: GraphQLInt},
         waiver: { type: GraphQLBoolean},
-        membershipType: { type: GraphQLString},
+        membershipStatus: { type: GraphQLString},
         product: {
             type: ProductType,
             resolve(parent, args) {
-                return products.find(product => product.id === parent.productId)
+                return Client.findById(parent.productId)
             }
 }})
 })
@@ -39,27 +40,27 @@ const RootQuery = new GraphQLObjectType({
         clients: {
             type: new GraphQLList(ClientType),
             resolve(parents,args) {
-                return clients
+              return Client.find();
             }
         },
         client: {
             type: ClientType,
             args: { id: {type: GraphQLID} },
             resolve(parent,args) {
-                return clients.find(client => client.id === args.id);
+                return Client.findById(args.id);
             }
         },
         products: {
             type: new GraphQLList(ProductType),
             resolve(parents,args) {
-                return products
+               return Product.find()
             }
         },
         product: {
             type: ProductType,
             args: { id: {type: GraphQLID} },
             resolve(parent,args) {
-                return products.find(product => product.id === args.id);
+                return Product.findById(args.id);
             }
         }
     }

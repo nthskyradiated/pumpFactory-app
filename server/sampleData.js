@@ -9,7 +9,7 @@
       birthday: 'September 1, 2011',
       age: 28,
       waiver: true,
-      membershipType: 'annual',
+      membershipStatus: 'inactive',
     },
     {
       id: '2',
@@ -20,18 +20,18 @@
       birthday: 'January 11, 2012',
       age: 18,
       waiver: false,
-      membershipType: 'monthly',
+      membershipStatus: 'active',
     },
     {
       id: '3',
-      productId: '3',
+      productId: '1',
       name: 'Thor Odinson',
       email: 'thor@gmail.com',
       phone: '324-331-4333',
       birthday: 'June 1, 2005',
       age: 34,
       waiver: true,
-      membershipType: '10pass',
+      membershipStatus: 'active',
     },
     {
       id: '4',
@@ -42,18 +42,18 @@
       birthday: 'December 25, 1900',
       age: 56,
       waiver: false,
-      membershipType: 'annual',
+      membershipStatus: 'active',
     },
     {
       id: '5',
-      productId: '5',
+      productId: '2',
       name: 'Bruce Banner',
       email: 'bruce@gmail.com',
       phone: '321-468-8887',
       birthday: 'May 31, 1983',
       age: 40,
       waiver: true,
-      membershipType: '',
+      membershipStatus: 'inactive',
     },
   ];
 
@@ -95,5 +95,3 @@ export const products = [
         price: 11000,
     },
   ];
-
-  
