@@ -1,6 +1,7 @@
 import Client from '../models/clientModel.js'
 import Product from '../models/productModel.js'
 import { GraphQLObjectType, GraphQLID, GraphQLEnumType, GraphQLString, GraphQLBoolean, GraphQLInt, GraphQLSchema, GraphQLList, GraphQLNonNull } from 'graphql';
+import { findExistingClient } from '../../utils/validation.js';
 
 
 //Product type
@@ -21,8 +22,8 @@ const ClientType = new GraphQLObjectType({
         name: { type: GraphQLString},
         email: { type: GraphQLString},
         phone: { type: GraphQLString},
-        birthday: { type: GraphQLString},
-        age: { type: GraphQLInt},
+        birthdate: { type: GraphQLString},
+        age: {type: GraphQLInt},
         waiver: { type: GraphQLBoolean},
         membershipStatus: { type: GraphQLString},
         product: {
@@ -77,8 +78,8 @@ const mutation = new GraphQLObjectType ({
                 name: { type: GraphQLNonNull(GraphQLString) },
                 email: { type: GraphQLNonNull(GraphQLString) },
                 phone: { type: GraphQLNonNull(GraphQLString) },
-                birthday: { type: GraphQLNonNull(GraphQLString) },
-                age: { type: GraphQLNonNull(GraphQLInt) },
+                birthdate: { type: GraphQLNonNull(GraphQLString) },
+                // age: { type: GraphQLInt },
                 waiver: { type: GraphQLNonNull(GraphQLBoolean) },
                 productId: {type: (GraphQLID)},
                 membershipStatus: { type: new GraphQLEnumType({
@@ -91,13 +92,29 @@ const mutation = new GraphQLObjectType ({
                     defaultValue: 'inactive'
                 },
             },
-            resolve(parent,args){
+            resolve: async (parent, args) => {
+                // Check for duplicates based on name, email, and phone
+                const existingClient = await findExistingClient(args.name, args.email, args.phone);
+
+                if (existingClient) {
+                    throw new Error('Client with the same name, email, or phone already exists.');
+                }
+                // Calculate the age based on the provided birthday
+                const birthDate = new Date(args.birthdate);
+                const currentDate = new Date();
+                const age = currentDate.getFullYear() - birthDate.getFullYear();
+
+                // Adjust age for leap years
+                if (currentDate.getMonth() < birthDate.getMonth() ||
+                    (currentDate.getMonth() === birthDate.getMonth() && currentDate.getDate() < birthDate.getDate())) {
+                    age--;
+                }
                 const client = new Client ({
                     name: args.name,
                     email: args.email,
                     phone: args.phone,
-                    birthday: args.birthday,
-                    age: args.age,
+                    birthdate: args.birthdate,
+                    age,
                     membershipStatus: args.membershipStatus,
                     waiver: args.waiver,
                     productId: args.productId
@@ -126,8 +143,7 @@ const mutation = new GraphQLObjectType ({
                 name: { type: (GraphQLString) },
                 email: { type: (GraphQLString) },
                 phone: { type: (GraphQLString) },
-                birthday: { type: (GraphQLString) },
-                age: { type: (GraphQLInt) },
+                birthdate: { type: (GraphQLString) },
                 waiver: { type: (GraphQLBoolean) },
                 membershipStatus: { type: new GraphQLEnumType({
                     name: 'MembershipStatusUpdate',
@@ -139,15 +155,31 @@ const mutation = new GraphQLObjectType ({
             },
             productId: {type: GraphQLID}
             },
-            resolve(parent, args) {
+            resolve: async (parent, args) => {
+                // Check for duplicates based on name, email, and phone
+                const existingClient = await findExistingClient(args.name, args.email, args.phone);
+
+                if (existingClient) {
+                    throw new Error('Client with the same name, email, or phone already exists.');
+                }
+                // Calculate the age based on the provided birthday
+                const birthDate = new Date(args.birthdate);
+                const currentDate = new Date();
+                const age = currentDate.getFullYear() - birthDate.getFullYear();
+
+                // Adjust age for leap years
+                if (currentDate.getMonth() < birthDate.getMonth() ||
+                    (currentDate.getMonth() === birthDate.getMonth() && currentDate.getDate() < birthDate.getDate())) {
+                    age--;
+                }
                 return Client.findByIdAndUpdate(args.id,
                     {
                         $set: {
                             name: args.name,
                             email: args.email,
                             phone: args.phone,
-                            birthday: args.birthday,
-                            age: args.age,
+                            birthdate: args.birthdate,
+                            // age: args.age,
                             membershipStatus: args.membershipStatus,
                             waiver: args.waiver,
                             productId: args.productId
