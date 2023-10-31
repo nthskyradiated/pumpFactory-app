@@ -166,14 +166,14 @@ const mutation = new GraphQLObjectType ({
                 phone: { type: (GraphQLString) },
                 birthdate: { type: (GraphQLString) },
                 waiver: { type: (GraphQLBoolean) },
-                membershipStatus: { type: new GraphQLEnumType({
-                    name: 'MembershipStatusUpdate',
-                    values: {
-                        'active': {value: 'active'},
-                        'inactive': {value: 'inactive'},
-                    }
-                }),
-            },
+            //     membershipStatus: { type: new GraphQLEnumType({
+            //         name: 'MembershipStatusUpdate',
+            //         values: {
+            //             'active': {value: 'active'},
+            //             'inactive': {value: 'inactive'},
+            //         }
+            //     }),
+            // },
             productId: {type: GraphQLID}
             },
             resolve: async (parent, args) => {
@@ -193,6 +193,9 @@ const mutation = new GraphQLObjectType ({
                     (currentDate.getMonth() === birthDate.getMonth() && currentDate.getDate() < birthDate.getDate())) {
                     age--;
                 }
+
+                const membershipStatus = args.productId? 'active' : 'inactive';
+
                 return Client.findByIdAndUpdate(args.id,
                     {
                         $set: {
@@ -201,7 +204,7 @@ const mutation = new GraphQLObjectType ({
                             phone: args.phone,
                             birthdate: args.birthdate,
                             // age: args.age,
-                            membershipStatus: args.membershipStatus,
+                            membershipStatus,
                             waiver: args.waiver,
                             productId: args.productId
                         }
