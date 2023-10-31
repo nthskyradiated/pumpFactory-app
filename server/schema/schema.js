@@ -3,6 +3,14 @@ import Product from '../models/productModel.js'
 import { GraphQLObjectType, GraphQLID, GraphQLEnumType, GraphQLString, GraphQLBoolean, GraphQLInt, GraphQLSchema, GraphQLList, GraphQLNonNull } from 'graphql';
 import { findExistingClient } from '../utils/validation.js';
 
+const MembershipStatusType = new GraphQLEnumType({
+    name: 'MembershipStatus',
+    values: {
+        active: { value: 'active' },
+        inactive: { value: 'inactive' }
+    },
+    defaultValue: 'inactive'
+});
 
 //Product type
 const ProductType = new GraphQLObjectType({
@@ -25,7 +33,17 @@ const ClientType = new GraphQLObjectType({
         birthdate: { type: GraphQLString},
         age: {type: GraphQLInt},
         waiver: { type: GraphQLBoolean},
-        membershipStatus: { type: GraphQLString},
+        membershipStatus: {
+            type: MembershipStatusType, 
+            resolve: async (parent) => {
+                // Fetch the product data associated with the client
+                const product = await Product.findById(parent.productId);
+                if (product) {
+                    return 'active';
+                }
+                return 'inactive';
+            },
+        },
         product: {
             type: ProductType,
             resolve(parent, args) {
@@ -82,15 +100,15 @@ const mutation = new GraphQLObjectType ({
                 // age: { type: GraphQLInt },
                 waiver: { type: GraphQLNonNull(GraphQLBoolean) },
                 productId: {type: (GraphQLID)},
-                membershipStatus: { type: new GraphQLEnumType({
-                        name: 'MembershipStatus',
-                        values: {
-                            'active': {value: 'active'},
-                            'inactive': {value: 'inactive'},
-                        }
-                    }),
-                    defaultValue: 'inactive'
-                },
+                // membershipStatus: { type: new GraphQLEnumType({
+                //         name: 'MembershipStatus',
+                //         values: {
+                //             'active': {value: 'active'},
+                //             'inactive': {value: 'inactive'},
+                //         }
+                //     }),
+                //     defaultValue: 'inactive'
+                // },
             },
             resolve: async (parent, args) => {
                 // Check for duplicates based on name, email, and phone
@@ -109,13 +127,16 @@ const mutation = new GraphQLObjectType ({
                     (currentDate.getMonth() === birthDate.getMonth() && currentDate.getDate() < birthDate.getDate())) {
                     age--;
                 }
+
+                const membershipStatus = args.productId? 'active' : 'inactive';
+
                 const client = new Client ({
                     name: args.name,
                     email: args.email,
                     phone: args.phone,
                     birthdate: args.birthdate,
                     age,
-                    membershipStatus: args.membershipStatus,
+                    membershipStatus,
                     waiver: args.waiver,
                     productId: args.productId
 
