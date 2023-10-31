@@ -1,5 +1,5 @@
 
-import Client from "../server/models/clientModel.js"
+import Client from "../models/clientModel.js"
 
 export const findExistingClient = async (name,email,phone) => {
     

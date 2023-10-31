@@ -1,7 +1,7 @@
 import Client from '../models/clientModel.js'
 import Product from '../models/productModel.js'
 import { GraphQLObjectType, GraphQLID, GraphQLEnumType, GraphQLString, GraphQLBoolean, GraphQLInt, GraphQLSchema, GraphQLList, GraphQLNonNull } from 'graphql';
-import { findExistingClient } from '../../utils/validation.js';
+import { findExistingClient } from '../utils/validation.js';
 
 
 //Product type
