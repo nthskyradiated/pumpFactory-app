@@ -171,55 +171,61 @@ const mutation = new GraphQLObjectType ({
             }
         },
 
-        //Update a Client
-        updateClient: {
-            type: ClientType,
-            args: {
-                id: {type: GraphQLNonNull(GraphQLID)},
-                name: { type: GraphQLString },
-                email: { type: GraphQLString },
-                phone: { type: GraphQLString },
-                birthdate: { type: DateType },
-                waiver: { type: GraphQLBoolean },
-            //     membershipStatus: { type: new GraphQLEnumType({
-            //         name: 'MembershipStatusUpdate',
-            //         values: {
-            //             'active': {value: 'active'},
-            //             'inactive': {value: 'inactive'},
-            //         }
-            //     }),
-            // },
-            productId: {type: GraphQLID}
-            },
-            resolve: async (parent, args) => {
-                // Check for duplicates based on name, email, and phone
-                const existingClient = await findExistingClient(args.name, args.email, args.phone);
-
-                if (existingClient) {
-                    throw new Error('Client with the same name, email, or phone already exists.');
-                }
-                // const age = validateAge(args.birthdate)
-
-                const membershipStatus = args.productId? 'active' : 'inactive';
-
-                return Client.findByIdAndUpdate(args.id,
-                    {
-                        $set: {
-                            name: args.name,
-                            email: args.email,
-                            phone: args.phone,
-                            birthdate: args.birthdate,
-                            age,
-                            membershipStatus,
-                            waiver: args.waiver,
-                            productId: args.productId
-                        }
-                    }
-                    ,{new: true}
-                    )
+// Update a Client
+updateClient: {
+    type: ClientType,
+    args: {
+        id: { type: GraphQLNonNull(GraphQLID) },
+        name: { type: GraphQLString },
+        email: { type: GraphQLString },
+        phone: { type: GraphQLString },
+        birthdate: { type: DateType },
+        waiver: { type: GraphQLBoolean },
+        membershipStatus: { type: MembershipStatusType },
+        productId: { type: GraphQLID }
+    },
+    resolve: async (parent, args) => {
+        // Check for duplicates based on name, email, and phone
+        if (args.name || args.email || args.phone) {
+            const existingClient = await findExistingClient(args.name, args.email, args.phone);
+            if (existingClient && existingClient.id.toString() !== args.id) {
+                throw new Error('Client with the same name, email, or phone already exists.');
             }
+        }
 
-        },
+        // Fetch the existing client to get its current age and productId
+        const existingClient = await Client.findById(args.id);
+
+        if (!existingClient) {
+            throw new Error('Client not found');
+        }
+
+        // Calculate the age based on the provided birthdate or use the existing age
+        const age = args.birthdate ? validateAge(args.birthdate) : existingClient.age;
+
+        // Determine the membership status based on the productId or use the existing status
+        let membershipStatus = 'inactive';
+
+        if (args.productId) {
+            // If productId is provided, the client should have 'active' membership status
+            membershipStatus = 'active';
+        }
+
+        // Create an updateFields object to specify the fields to update. We use the existing values if new values are not provided.
+        const updateFields = {
+            name: args.name || existingClient.name,
+            email: args.email || existingClient.email,
+            phone: args.phone || existingClient.phone,
+            birthdate: args.birthdate || existingClient.birthdate,
+            age,
+            membershipStatus,
+            waiver: args.waiver !== undefined ? args.waiver : existingClient.waiver,
+            productId: args.productId, // To remove the product, set it to null or undefined
+        };
+
+        return Client.findByIdAndUpdate(args.id, { $set: updateFields }, { new: true });
+    }
+},
 
         // Add a product
         addProduct: {
