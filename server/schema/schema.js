@@ -1,7 +1,7 @@
 import Client from '../models/clientModel.js'
 import Product from '../models/productModel.js'
 import { GraphQLObjectType, GraphQLID, GraphQLEnumType, GraphQLString, GraphQLBoolean, GraphQLInt, GraphQLSchema, GraphQLList, GraphQLNonNull } from 'graphql';
-import { findExistingClient } from '../utils/validation.js';
+import { findExistingClient, validateAge } from '../utils/clientUtils.js';
 
 const MembershipStatusType = new GraphQLEnumType({
     name: 'MembershipStatus',
@@ -117,16 +117,8 @@ const mutation = new GraphQLObjectType ({
                 if (existingClient) {
                     throw new Error('Client with the same name, email, or phone already exists.');
                 }
-                // Calculate the age based on the provided birthday
-                const birthDate = new Date(args.birthdate);
-                const currentDate = new Date();
-                const age = currentDate.getFullYear() - birthDate.getFullYear();
 
-                // Adjust age for leap years
-                if (currentDate.getMonth() < birthDate.getMonth() ||
-                    (currentDate.getMonth() === birthDate.getMonth() && currentDate.getDate() < birthDate.getDate())) {
-                    age--;
-                }
+                const age = validateAge(args.birthdate)
 
                 const membershipStatus = args.productId? 'active' : 'inactive';
 
@@ -183,16 +175,7 @@ const mutation = new GraphQLObjectType ({
                 if (existingClient) {
                     throw new Error('Client with the same name, email, or phone already exists.');
                 }
-                // Calculate the age based on the provided birthday
-                const birthDate = new Date(args.birthdate);
-                const currentDate = new Date();
-                const age = currentDate.getFullYear() - birthDate.getFullYear();
-
-                // Adjust age for leap years
-                if (currentDate.getMonth() < birthDate.getMonth() ||
-                    (currentDate.getMonth() === birthDate.getMonth() && currentDate.getDate() < birthDate.getDate())) {
-                    age--;
-                }
+                const age = validateAge(args.birthdate)
 
                 const membershipStatus = args.productId? 'active' : 'inactive';
 
@@ -203,7 +186,7 @@ const mutation = new GraphQLObjectType ({
                             email: args.email,
                             phone: args.phone,
                             birthdate: args.birthdate,
-                            // age: args.age,
+                            age,
                             membershipStatus,
                             waiver: args.waiver,
                             productId: args.productId
