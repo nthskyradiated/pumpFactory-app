@@ -1,7 +1,39 @@
 import Client from '../models/clientModel.js'
 import Product from '../models/productModel.js'
-import { GraphQLObjectType, GraphQLID, GraphQLEnumType, GraphQLString, GraphQLBoolean, GraphQLInt, GraphQLSchema, GraphQLList, GraphQLNonNull } from 'graphql';
+import { GraphQLObjectType, GraphQLID, GraphQLEnumType, GraphQLString, GraphQLBoolean, GraphQLInt, GraphQLSchema, GraphQLList, GraphQLNonNull, Kind, GraphQLScalarType } from 'graphql';
 import { findExistingClient, validateAge } from '../utils/clientUtils.js';
+import { error } from 'console';
+
+const DateType = new GraphQLScalarType({
+    name: 'Date',
+    description: 'Custom date scalar type',
+    parseValue(value) {
+        if (typeof value === 'number') {
+            return new Date(value);
+        } else
+        throw new Error('GraphQL Date Scalar parser expected a `number`');
+    },
+    serialize(value) {
+        if (value instanceof Date) {
+            const dateISOString = value.toISOString();
+            return dateISOString.split('T')[0]; // Extract the date part
+        }
+        throw new Error('Invalid Date value');
+    },
+    parseLiteral(ast) {
+        if (ast.kind === Kind.STRING) {
+            const dateParts = ast.value.split('-');
+            if (dateParts.length === 3) {
+                const year = dateParts[2];
+                const month = dateParts[0];
+                const day = dateParts[1];
+                return `${year}-${month}-${day}`;
+            }
+        }else
+        throw new Error('Invalid Date literal');
+    },
+});
+
 
 const MembershipStatusType = new GraphQLEnumType({
     name: 'MembershipStatus',
@@ -30,7 +62,7 @@ const ClientType = new GraphQLObjectType({
         name: { type: GraphQLString},
         email: { type: GraphQLString},
         phone: { type: GraphQLString},
-        birthdate: { type: GraphQLString},
+        birthdate: { type: DateType},
         age: {type: GraphQLInt},
         waiver: { type: GraphQLBoolean},
         membershipStatus: {
@@ -96,33 +128,24 @@ const mutation = new GraphQLObjectType ({
                 name: { type: GraphQLNonNull(GraphQLString) },
                 email: { type: GraphQLNonNull(GraphQLString) },
                 phone: { type: GraphQLNonNull(GraphQLString) },
-                birthdate: { type: GraphQLNonNull(GraphQLString) },
-                // age: { type: GraphQLInt },
+                birthdate: { type: GraphQLNonNull(DateType) },
                 waiver: { type: GraphQLNonNull(GraphQLBoolean) },
                 productId: {type: (GraphQLID)},
-                // membershipStatus: { type: new GraphQLEnumType({
-                //         name: 'MembershipStatus',
-                //         values: {
-                //             'active': {value: 'active'},
-                //             'inactive': {value: 'inactive'},
-                //         }
-                //     }),
-                //     defaultValue: 'inactive'
-                // },
             },
             resolve: async (parent, args) => {
-                // Check for duplicates based on name, email, and phone
+                
                 const existingClient = await findExistingClient(args.name, args.email, args.phone);
 
                 if (existingClient) {
                     throw new Error('Client with the same name, email, or phone already exists.');
                 }
 
-                const age = validateAge(args.birthdate)
 
-                const membershipStatus = args.productId? 'active' : 'inactive';
+                const age = validateAge(args.birthdate);
 
-                const client = new Client ({
+                const membershipStatus = args.productId ? 'active' : 'inactive';
+        
+                const client = new Client({
                     name: args.name,
                     email: args.email,
                     phone: args.phone,
@@ -130,7 +153,7 @@ const mutation = new GraphQLObjectType ({
                     age,
                     membershipStatus,
                     waiver: args.waiver,
-                    productId: args.productId
+                    productId: args.productId,
 
                 })
 
@@ -153,11 +176,11 @@ const mutation = new GraphQLObjectType ({
             type: ClientType,
             args: {
                 id: {type: GraphQLNonNull(GraphQLID)},
-                name: { type: (GraphQLString) },
-                email: { type: (GraphQLString) },
-                phone: { type: (GraphQLString) },
-                birthdate: { type: (GraphQLString) },
-                waiver: { type: (GraphQLBoolean) },
+                name: { type: GraphQLString },
+                email: { type: GraphQLString },
+                phone: { type: GraphQLString },
+                birthdate: { type: DateType },
+                waiver: { type: GraphQLBoolean },
             //     membershipStatus: { type: new GraphQLEnumType({
             //         name: 'MembershipStatusUpdate',
             //         values: {
@@ -175,7 +198,7 @@ const mutation = new GraphQLObjectType ({
                 if (existingClient) {
                     throw new Error('Client with the same name, email, or phone already exists.');
                 }
-                const age = validateAge(args.birthdate)
+                // const age = validateAge(args.birthdate)
 
                 const membershipStatus = args.productId? 'active' : 'inactive';
 

@@ -11,7 +11,7 @@ const ClientSchema = new mongoose.Schema({
         type: String
     },
     birthdate: {
-        type: String
+        type: Date
     },
     age: {
         type: Number
