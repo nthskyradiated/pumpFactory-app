@@ -28,6 +28,7 @@ const ClientSchema = new mongoose.Schema({
         ref: 'Product'
     }
 
-});
+},{timestamps: true}
+);
 
 export default mongoose.model('Client', ClientSchema)

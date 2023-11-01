@@ -2,7 +2,6 @@ import Client from '../models/clientModel.js'
 import Product from '../models/productModel.js'
 import { GraphQLObjectType, GraphQLID, GraphQLEnumType, GraphQLString, GraphQLBoolean, GraphQLInt, GraphQLSchema, GraphQLList, GraphQLNonNull, Kind, GraphQLScalarType } from 'graphql';
 import { findExistingClient, validateAge } from '../utils/clientUtils.js';
-import { error } from 'console';
 
 const DateType = new GraphQLScalarType({
     name: 'Date',
@@ -10,13 +9,15 @@ const DateType = new GraphQLScalarType({
     parseValue(value) {
         if (typeof value === 'number') {
             return new Date(value);
-        } else
+        }
         throw new Error('GraphQL Date Scalar parser expected a `number`');
     },
     serialize(value) {
         if (value instanceof Date) {
-            const dateISOString = value.toISOString();
-            return dateISOString.split('T')[0]; // Extract the date part
+            const year = value.getFullYear();
+            const month = String(value.getMonth() + 1).padStart(2, '0'); // Month is zero-based, so add 1 and pad with leading zero
+            const day = String(value.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         }
         throw new Error('Invalid Date value');
     },
@@ -29,7 +30,7 @@ const DateType = new GraphQLScalarType({
                 const day = dateParts[1];
                 return `${year}-${month}-${day}`;
             }
-        }else
+        }
         throw new Error('Invalid Date literal');
     },
 });
@@ -140,7 +141,6 @@ const mutation = new GraphQLObjectType ({
                     throw new Error('Client with the same name, email, or phone already exists.');
                 }
 
-
                 const age = validateAge(args.birthdate);
 
                 const membershipStatus = args.productId ? 'active' : 'inactive';
@@ -188,7 +188,7 @@ updateClient: {
         // Check for duplicates based on name, email, and phone
         if (args.name || args.email || args.phone) {
             const existingClient = await findExistingClient(args.name, args.email, args.phone);
-            if (existingClient && existingClient.id.toString() !== args.id) {
+            if (existingClient) {
                 throw new Error('Client with the same name, email, or phone already exists.');
             }
         }
