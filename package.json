@@ -16,11 +16,15 @@
   "dependencies": {
     "ansi-colors-es6": "^5.0.0",
     "cors": "^2.8.5",
+    "date-fns": "^2.30.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-graphql": "^0.12.0",
     "graphql": "^15.8.0",
-    "mongoose": "^7.6.3"
+    "helmet": "^7.0.0",
+    "mongoose": "^7.6.3",
+    "morgan": "^1.10.0",
+    "vhost": "^3.0.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

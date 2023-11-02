@@ -1,7 +1,49 @@
 import Client from '../models/clientModel.js'
 import Product from '../models/productModel.js'
-import { GraphQLObjectType, GraphQLID, GraphQLEnumType, GraphQLString, GraphQLBoolean, GraphQLInt, GraphQLSchema, GraphQLList, GraphQLNonNull } from 'graphql';
+import { GraphQLObjectType, GraphQLID, GraphQLEnumType, GraphQLString, GraphQLBoolean, GraphQLInt, GraphQLSchema, GraphQLList, GraphQLNonNull, Kind, GraphQLScalarType } from 'graphql';
+import { findExistingClient, validateAge } from '../utils/clientUtils.js';
 
+const DateType = new GraphQLScalarType({
+    name: 'Date',
+    description: 'Custom date scalar type',
+    parseValue(value) {
+        if (typeof value === 'number') {
+            return new Date(value);
+        }
+        throw new Error('GraphQL Date Scalar parser expected a `number`');
+    },
+    serialize(value) {
+        if (value instanceof Date) {
+            const year = value.getFullYear();
+            const month = String(value.getMonth() + 1).padStart(2, '0'); // Month is zero-based, so add 1 and pad with leading zero
+            const day = String(value.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        throw new Error('Invalid Date value');
+    },
+    parseLiteral(ast) {
+        if (ast.kind === Kind.STRING) {
+            const dateParts = ast.value.split('-');
+            if (dateParts.length === 3) {
+                const year = dateParts[2];
+                const month = dateParts[0];
+                const day = dateParts[1];
+                return `${year}-${month}-${day}`;
+            }
+        }
+        throw new Error('Invalid Date literal');
+    },
+});
+
+
+const MembershipStatusType = new GraphQLEnumType({
+    name: 'MembershipStatus',
+    values: {
+        active: { value: 'active' },
+        inactive: { value: 'inactive' }
+    },
+    defaultValue: 'inactive'
+});
 
 //Product type
 const ProductType = new GraphQLObjectType({
@@ -21,10 +63,20 @@ const ClientType = new GraphQLObjectType({
         name: { type: GraphQLString},
         email: { type: GraphQLString},
         phone: { type: GraphQLString},
-        birthday: { type: GraphQLString},
-        age: { type: GraphQLInt},
+        birthdate: { type: DateType},
+        age: {type: GraphQLInt},
         waiver: { type: GraphQLBoolean},
-        membershipStatus: { type: GraphQLString},
+        membershipStatus: {
+            type: MembershipStatusType, 
+            resolve: async (parent) => {
+                // Fetch the product data associated with the client
+                const product = await Product.findById(parent.productId);
+                if (product) {
+                    return 'active';
+                }
+                return 'inactive';
+            },
+        },
         product: {
             type: ProductType,
             resolve(parent, args) {
@@ -77,30 +129,31 @@ const mutation = new GraphQLObjectType ({
                 name: { type: GraphQLNonNull(GraphQLString) },
                 email: { type: GraphQLNonNull(GraphQLString) },
                 phone: { type: GraphQLNonNull(GraphQLString) },
-                birthday: { type: GraphQLNonNull(GraphQLString) },
-                age: { type: GraphQLNonNull(GraphQLInt) },
+                birthdate: { type: GraphQLNonNull(DateType) },
                 waiver: { type: GraphQLNonNull(GraphQLBoolean) },
                 productId: {type: (GraphQLID)},
-                membershipStatus: { type: new GraphQLEnumType({
-                        name: 'MembershipStatus',
-                        values: {
-                            'active': {value: 'active'},
-                            'inactive': {value: 'inactive'},
-                        }
-                    }),
-                    defaultValue: 'inactive'
-                },
             },
-            resolve(parent,args){
-                const client = new Client ({
+            resolve: async (parent, args) => {
+                
+                const existingClient = await findExistingClient(args.name, args.email, args.phone);
+
+                if (existingClient) {
+                    throw new Error('Client with the same name, email, or phone already exists.');
+                }
+
+                const age = validateAge(args.birthdate);
+
+                const membershipStatus = args.productId ? 'active' : 'inactive';
+        
+                const client = new Client({
                     name: args.name,
                     email: args.email,
                     phone: args.phone,
-                    birthday: args.birthday,
-                    age: args.age,
-                    membershipStatus: args.membershipStatus,
+                    birthdate: args.birthdate,
+                    age,
+                    membershipStatus,
                     waiver: args.waiver,
-                    productId: args.productId
+                    productId: args.productId,
 
                 })
 
@@ -118,46 +171,61 @@ const mutation = new GraphQLObjectType ({
             }
         },
 
-        //Update a Client
-        updateClient: {
-            type: ClientType,
-            args: {
-                id: {type: GraphQLNonNull(GraphQLID)},
-                name: { type: (GraphQLString) },
-                email: { type: (GraphQLString) },
-                phone: { type: (GraphQLString) },
-                birthday: { type: (GraphQLString) },
-                age: { type: (GraphQLInt) },
-                waiver: { type: (GraphQLBoolean) },
-                membershipStatus: { type: new GraphQLEnumType({
-                    name: 'MembershipStatusUpdate',
-                    values: {
-                        'active': {value: 'active'},
-                        'inactive': {value: 'inactive'},
-                    }
-                }),
-            },
-            productId: {type: GraphQLID}
-            },
-            resolve(parent, args) {
-                return Client.findByIdAndUpdate(args.id,
-                    {
-                        $set: {
-                            name: args.name,
-                            email: args.email,
-                            phone: args.phone,
-                            birthday: args.birthday,
-                            age: args.age,
-                            membershipStatus: args.membershipStatus,
-                            waiver: args.waiver,
-                            productId: args.productId
-                        }
-                    }
-                    ,{new: true}
-                    )
+// Update a Client
+updateClient: {
+    type: ClientType,
+    args: {
+        id: { type: GraphQLNonNull(GraphQLID) },
+        name: { type: GraphQLString },
+        email: { type: GraphQLString },
+        phone: { type: GraphQLString },
+        birthdate: { type: DateType },
+        waiver: { type: GraphQLBoolean },
+        membershipStatus: { type: MembershipStatusType },
+        productId: { type: GraphQLID }
+    },
+    resolve: async (parent, args) => {
+        // Check for duplicates based on name, email, and phone
+        if (args.name || args.email || args.phone) {
+            const existingClient = await findExistingClient(args.name, args.email, args.phone);
+            if (existingClient) {
+                throw new Error('Client with the same name, email, or phone already exists.');
             }
+        }
 
-        },
+        // Fetch the existing client to get its current age and productId
+        const existingClient = await Client.findById(args.id);
+
+        if (!existingClient) {
+            throw new Error('Client not found');
+        }
+
+        // Calculate the age based on the provided birthdate or use the existing age
+        const age = args.birthdate ? validateAge(args.birthdate) : existingClient.age;
+
+        // Determine the membership status based on the productId or use the existing status
+        let membershipStatus = 'inactive';
+
+        if (args.productId) {
+            // If productId is provided, the client should have 'active' membership status
+            membershipStatus = 'active';
+        }
+
+        // Create an updateFields object to specify the fields to update. We use the existing values if new values are not provided.
+        const updateFields = {
+            name: args.name || existingClient.name,
+            email: args.email || existingClient.email,
+            phone: args.phone || existingClient.phone,
+            birthdate: args.birthdate || existingClient.birthdate,
+            age,
+            membershipStatus,
+            waiver: args.waiver !== undefined ? args.waiver : existingClient.waiver,
+            productId: args.productId, // To remove the product, set it to null or undefined
+        };
+
+        return Client.findByIdAndUpdate(args.id, { $set: updateFields }, { new: true });
+    }
+},
 
         // Add a product
         addProduct: {

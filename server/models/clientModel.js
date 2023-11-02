@@ -10,8 +10,8 @@ const ClientSchema = new mongoose.Schema({
     phone: {
         type: String
     },
-    birthday: {
-        type: String
+    birthdate: {
+        type: Date
     },
     age: {
         type: Number
@@ -28,6 +28,7 @@ const ClientSchema = new mongoose.Schema({
         ref: 'Product'
     }
 
-});
+},{timestamps: true}
+);
 
 export default mongoose.model('Client', ClientSchema)
