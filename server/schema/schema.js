@@ -1,7 +1,14 @@
 import Client from '../models/clientModel.js'
 import Product from '../models/productModel.js'
+import User from '../models/userModel.js'
 import { GraphQLObjectType, GraphQLID, GraphQLEnumType, GraphQLString, GraphQLBoolean, GraphQLInt, GraphQLSchema, GraphQLList, GraphQLNonNull, Kind, GraphQLScalarType } from 'graphql';
 import { findExistingClient, validateAge } from '../utils/clientUtils.js';
+import  jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs'
+import dotenv from "dotenv";
+
+
+dotenv.config()
 
 const DateType = new GraphQLScalarType({
     name: 'Date',
@@ -53,6 +60,19 @@ const ProductType = new GraphQLObjectType({
         name: { type: GraphQLString},
         description: { type: GraphQLString},
         price: { type: GraphQLInt}
+    })
+})
+
+//User type
+const UserType = new GraphQLObjectType({
+    name: 'User',
+    fields: () => ({
+        id: { type: GraphQLID},
+        name: { type: GraphQLString},
+        email: { type: GraphQLString},
+        username: { type: GraphQLString},
+        password: { type: GraphQLString},
+        isAdmin: { type: GraphQLBoolean}
     })
 })
 //Client type
@@ -114,6 +134,19 @@ const RootQuery = new GraphQLObjectType({
             resolve(parent,args) {
                 return Product.findById(args.id);
             }
+        },
+        users: {
+            type: new GraphQLList(ClientType),
+            resolve(parents,args) {
+              return User.find();
+            }
+        },
+        user: {
+            type: ClientType,
+            args: { id: {type: GraphQLID} },
+            resolve(parent,args) {
+                return User.findById(args.id);
+            }
         }
     }
 })
@@ -172,7 +205,7 @@ const mutation = new GraphQLObjectType ({
         },
 
 // Update a Client
-updateClient: {
+        updateClient: {
     type: ClientType,
     args: {
         id: { type: GraphQLNonNull(GraphQLID) },
@@ -225,7 +258,7 @@ updateClient: {
 
         return Client.findByIdAndUpdate(args.id, { $set: updateFields }, { new: true });
     }
-},
+        },
 
         // Add a product
         addProduct: {
@@ -244,7 +277,7 @@ updateClient: {
             return product.save()
         }},
            //Delete a Product
-           deleteProduct: {
+        deleteProduct: {
             type: ProductType,
             args: {
                 id: {type: GraphQLNonNull(GraphQLID)}
@@ -278,11 +311,79 @@ updateClient: {
             }
 
         },
+        loginMutation: {
+            type: GraphQLString, // Return a JWT token
+            args: {
+                username: { type: GraphQLNonNull(GraphQLString) },
+                password: { type: GraphQLNonNull(GraphQLString) }
+            },
+            resolve: async (parent, args) => {
+                const user = await User.findOne({ username: args.username });
+        
+                if (!user) {
+                    throw new Error('User not found');
+                }
+        
+                const validPassword = await bcrypt.compare(args.password, user.password);
+        
+                if (!validPassword) {
+                    throw new Error('Invalid password');
+                }
+        
+                const token = jwt.sign({ userId: user.id, isAdmin: user.isAdmin }, process.env.JWT_SECRET, {
+                    expiresIn: '1h' // Token expiration time
+                });
+        
+                return token;
+            }
+        },
+        registerMutation: {
+            type: UserType, // Return the newly registered user
+            args: {
+                name: { type: GraphQLNonNull(GraphQLString) },
+                username: { type: GraphQLNonNull(GraphQLString) },
+                email: { type: GraphQLNonNull(GraphQLString) },
+                password: { type: GraphQLNonNull(GraphQLString) },
+                isAdmin: { type: GraphQLBoolean }
+            },
+            resolve: async (parent, args) => {
+                // Check if the username or email is already in use
+                const existingUser = await User.findOne({
+                    $or: [{ username: args.username }, { email: args.email }]
+                });
+        
+                if (existingUser) {
+                    throw new Error('User with the same username or email already exists.');
+                }
+        
+                // Hash the password before storing it
+                const hashedPassword = await bcrypt.hash(args.password, 10);
+        
+                // Create a new user
+                const user = new User({
+                    name: args.name,
+                    username: args.username,
+                    email: args.email,
+                    password: hashedPassword,
+                    isAdmin: args.isAdmin || false
+                });
+        
+                return user.save();
+            }
+        }
+    },
 
-    }
+
 })
+
+
+
+
+// Mutation for user registration
+
 
 export default new GraphQLSchema({
     query: RootQuery,
-    mutation
+    mutation,
+
 })
